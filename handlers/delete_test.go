@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/openfaas/faas/gateway/requests"
-	"github.com/openfaas-incubator/faas-rancher/mocks"
+	"github.com/gitmonster/faas-rancher/mocks"
 	client "github.com/rancher/go-rancher/v2"
 	"github.com/stretchr/testify/assert"
 )

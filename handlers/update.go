@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/openfaas-incubator/faas-rancher/rancher"
+	"github.com/gitmonster/faas-rancher/rancher"
 	"github.com/openfaas/faas/gateway/requests"
 	client "github.com/rancher/go-rancher/v2"
 )

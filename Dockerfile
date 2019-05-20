@@ -1,7 +1,7 @@
 FROM golang:1.10.4
 
-RUN mkdir -p /go/src/github.com/openfaas-incubator/faas-rancher/
-WORKDIR /go/src/github.com/openfaas-incubator/faas-rancher
+RUN mkdir -p /go/src/github.com/gitmonster/faas-rancher/
+WORKDIR /go/src/github.com/gitmonster/faas-rancher
 
 COPY vendor     vendor
 COPY handlers   handlers
@@ -20,6 +20,6 @@ EXPOSE 8080
 ENV http_proxy      ""
 ENV https_proxy     ""
 
-COPY --from=0 /go/src/github.com/openfaas-incubator/faas-rancher/faas-rancher .
+COPY --from=0 /go/src/github.com/gitmonster/faas-rancher/faas-rancher .
 
 CMD ["./faas-rancher"]

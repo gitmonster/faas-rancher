@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/openfaas-incubator/faas-rancher/rancher"
+	"github.com/gitmonster/faas-rancher/rancher"
 	"github.com/openfaas/faas/gateway/requests"
 )
 

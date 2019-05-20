@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
-	"github.com/openfaas-incubator/faas-rancher/mocks"
+	"github.com/gitmonster/faas-rancher/mocks"
 	"github.com/openfaas/faas/gateway/requests"
 	client "github.com/rancher/go-rancher/v2"
 	"github.com/stretchr/testify/assert"

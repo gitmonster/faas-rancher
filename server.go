@@ -10,8 +10,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/openfaas-incubator/faas-rancher/handlers"
-	"github.com/openfaas-incubator/faas-rancher/rancher"
+	"github.com/gitmonster/faas-rancher/handlers"
+	"github.com/gitmonster/faas-rancher/rancher"
 	bootstrap "github.com/openfaas/faas-provider"
 	bootTypes "github.com/openfaas/faas-provider/types"
 )
@@ -67,8 +67,8 @@ func main() {
 		ReplicaReader:  handlers.MakeReplicaReader(rancherClient).ServeHTTP,
 		ReplicaUpdater: handlers.MakeReplicaUpdater(rancherClient).ServeHTTP,
 		UpdateHandler:  handlers.MakeUpdateHandler(rancherClient).ServeHTTP,
-		Health:         handlers.MakeHealthHandler(),
-		InfoHandler:    handlers.MakeInfoHandler("0.8.1", ""),
+		HealthHandler:  handlers.MakeHealthHandler(),
+		InfoHandler:    handlers.MakeInfoHandler("0.13.0", ""),
 		SecretHandler:  handlers.MakeSecretHandler(),
 	}
 

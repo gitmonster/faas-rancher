@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/openfaas-incubator/faas-rancher/rancher"
-	"github.com/openfaas-incubator/faas-rancher/types"
+	"github.com/gitmonster/faas-rancher/rancher"
+	"github.com/gitmonster/faas-rancher/types"
 	"github.com/openfaas/faas/gateway/requests"
 )
 
