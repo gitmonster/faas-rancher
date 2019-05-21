@@ -61,7 +61,6 @@ func MakeDeployHandler(client rancher.BridgeClient) VarsHandler {
 }
 
 func makeServiceSpec(request requests.CreateFunctionRequest) *client.Service {
-
 	envVars := make(map[string]interface{})
 	for k, v := range request.EnvVars {
 		envVars[k] = v
@@ -71,7 +70,14 @@ func makeServiceSpec(request requests.CreateFunctionRequest) *client.Service {
 		envVars["fprocess"] = request.EnvProcess
 	}
 
+	// transfer request labels
 	labels := make(map[string]interface{})
+	if request.Labels != nil {
+		for k, v := range *request.Labels {
+			labels[k] = v
+		}
+	}
+
 	labels[FaasFunctionLabel] = request.Service
 	labels["io.rancher.container.pull_image"] = "always"
 
