@@ -104,10 +104,11 @@ func Test_MakeFunctionReader_Get_Service_List_Has_Active_Services(t *testing.T) 
 
 	replicas := uint64(activeService.Scale)
 	expectedFunction := requests.Function{
-		Name:            activeService.Name,
-		Replicas:        replicas,
-		Image:           activeService.LaunchConfig.ImageUuid,
-		InvocationCount: 0,
+		Name:              activeService.Name,
+		Replicas:          replicas,
+		AvailableReplicas: replicas,
+		Image:             activeService.LaunchConfig.ImageUuid,
+		InvocationCount:   0,
 	}
 
 	services := []client.Service{
