@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/juju/errors"
 	"github.com/openfaas/faas-provider/types"
 )
 
@@ -32,7 +33,7 @@ func MakeInfoHandler(version, sha string) http.HandlerFunc {
 
 		jsonOut, marshalErr := json.Marshal(infoRequest)
 		if marshalErr != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			handleServerError(w, errors.Annotate(marshalErr, "Marshal"))
 			return
 		}
 

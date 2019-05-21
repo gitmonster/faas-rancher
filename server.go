@@ -4,7 +4,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -12,16 +12,29 @@ import (
 
 	"github.com/gitmonster/faas-rancher/handlers"
 	"github.com/gitmonster/faas-rancher/rancher"
+	"github.com/juju/errors"
 	bootstrap "github.com/openfaas/faas-provider"
 	bootTypes "github.com/openfaas/faas-provider/types"
+	"github.com/sirupsen/logrus"
+)
+
+var (
+	// CommitSHA gets overwritten by build process
+	logger    = logrus.WithField("package", "main")
+	CommitSHA = "n/a"
 )
 
 const (
 	// TimeoutSeconds used for http client
 	TimeoutSeconds = 2
+	// Version is the current version
+	Version = "0.13.0"
 )
 
 func main() {
+	if os.Getenv("DEBUG") == "true" {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
 
 	functionStackName := os.Getenv("FUNCTION_STACK_NAME")
 	cattleURL := os.Getenv("CATTLE_URL")
@@ -34,16 +47,18 @@ func main() {
 		cattleURL,
 		cattleAccessKey,
 		cattleSecretKey)
+
 	if err != nil {
-		panic(err.Error())
+		log.Fatal(errors.Annotate(err, "NewClientConfig"))
 	}
 
 	// create the rancher REST client
 	rancherClient, err := rancher.NewClientForConfig(config)
 	if err != nil {
-		panic(err.Error())
+		logger.Fatal(errors.Annotate(err, "NewClientForConfig"))
 	}
-	fmt.Println("Created Rancher Client")
+
+	logger.Info("Created Rancher Client")
 
 	proxyClient := http.Client{
 		Transport: &http.Transport{
@@ -59,17 +74,25 @@ func main() {
 		},
 	}
 
+	wrapHandlerFunc := func(name string, fn http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			logger.Debugf("enter %s", name)
+			defer logger.Debugf("leave %s", name)
+			fn(w, r)
+		}
+	}
+
 	bootstrapHandlers := bootTypes.FaaSHandlers{
-		FunctionProxy:  handlers.MakeProxy(&proxyClient, config.FunctionsStackName).ServeHTTP,
-		DeleteHandler:  handlers.MakeDeleteHandler(rancherClient).ServeHTTP,
-		DeployHandler:  handlers.MakeDeployHandler(rancherClient).ServeHTTP,
-		FunctionReader: handlers.MakeFunctionReader(rancherClient).ServeHTTP,
-		ReplicaReader:  handlers.MakeReplicaReader(rancherClient).ServeHTTP,
-		ReplicaUpdater: handlers.MakeReplicaUpdater(rancherClient).ServeHTTP,
-		UpdateHandler:  handlers.MakeUpdateHandler(rancherClient).ServeHTTP,
-		HealthHandler:  handlers.MakeHealthHandler(),
-		InfoHandler:    handlers.MakeInfoHandler("0.13.0", ""),
-		SecretHandler:  handlers.MakeSecretHandler(),
+		FunctionProxy:  wrapHandlerFunc("Proxy", handlers.MakeProxy(&proxyClient, config.FunctionsStackName).ServeHTTP),
+		DeleteHandler:  wrapHandlerFunc("DeleteHandler", handlers.MakeDeleteHandler(rancherClient).ServeHTTP),
+		DeployHandler:  wrapHandlerFunc("DeployHandler", handlers.MakeDeployHandler(rancherClient).ServeHTTP),
+		FunctionReader: wrapHandlerFunc("FunctionReader", handlers.MakeFunctionReader(rancherClient).ServeHTTP),
+		ReplicaReader:  wrapHandlerFunc("ReplicaReader", handlers.MakeReplicaReader(rancherClient).ServeHTTP),
+		ReplicaUpdater: wrapHandlerFunc("ReplicaUpdater", handlers.MakeReplicaUpdater(rancherClient).ServeHTTP),
+		UpdateHandler:  wrapHandlerFunc("UpdateHandler", handlers.MakeUpdateHandler(rancherClient).ServeHTTP),
+		HealthHandler:  wrapHandlerFunc("HealthHandler", handlers.MakeHealthHandler()),
+		InfoHandler:    wrapHandlerFunc("InfoHandler", handlers.MakeInfoHandler(Version, CommitSHA)),
+		SecretHandler:  wrapHandlerFunc("SecretHandler", handlers.MakeSecretHandler()),
 	}
 
 	// Todo: AE - parse port and parse timeout from env-vars

@@ -5,13 +5,12 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"regexp"
 
 	"github.com/gitmonster/faas-rancher/rancher"
+	"github.com/juju/errors"
 	"github.com/openfaas/faas/gateway/requests"
 	client "github.com/rancher/go-rancher/v2"
 )
@@ -24,7 +23,7 @@ func ValidateDeployRequest(request *requests.CreateFunctionRequest) error {
 		return nil
 	}
 
-	return fmt.Errorf("(%s) must be a valid DNS entry for service name", request.Service)
+	return errors.Errorf("(%s) must be a valid DNS entry for service name", request.Service)
 }
 
 // MakeDeployHandler creates a handler to create new functions in the cluster
@@ -38,13 +37,12 @@ func MakeDeployHandler(client rancher.BridgeClient) VarsHandler {
 		request := requests.CreateFunctionRequest{}
 		err := json.Unmarshal(body, &request)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
+			handleBadRequest(w, errors.Annotate(err, "Unmarshal"))
 			return
 		}
 
 		if err := ValidateDeployRequest(&request); err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(err.Error()))
+			handleBadRequest(w, errors.Annotate(err, "ValidateDeployRequest"))
 			return
 		}
 
@@ -52,17 +50,13 @@ func MakeDeployHandler(client rancher.BridgeClient) VarsHandler {
 
 		_, err = client.CreateService(serviceSpec)
 		if err != nil {
-			log.Println(err)
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			handleServerError(w, errors.Annotate(err, "CreateService"))
 			return
 		}
 
-		log.Println("Created service - " + request.Service)
-		log.Println(string(body))
-
+		logger.Infof("Created service %s", request.Service)
+		logger.Debug(string(body))
 		w.WriteHeader(http.StatusAccepted)
-
 	}
 }
 

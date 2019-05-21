@@ -10,7 +10,9 @@ COPY rancher    rancher
 COPY server.go  .
 
 RUN gofmt -l -d $(find . -type f -name '*.go' -not -path "./vendor/*") \  
-  && CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o faas-rancher .
+  && CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \
+#  -ldflags="-X main.CommitSHA=`git rev-parse HEAD`" \
+  -o /tmp/faas-rancher .
 
 FROM alpine:3.8
 RUN apk --no-cache add ca-certificates
@@ -20,6 +22,6 @@ EXPOSE 8080
 ENV http_proxy      ""
 ENV https_proxy     ""
 
-COPY --from=0 /go/src/github.com/gitmonster/faas-rancher/faas-rancher .
-
+COPY --from=0 /tmp/faas-rancher .
 CMD ["./faas-rancher"]
+

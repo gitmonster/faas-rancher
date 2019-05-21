@@ -4,13 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/openfaas/faas/gateway/requests"
 	"github.com/gitmonster/faas-rancher/mocks"
+	"github.com/openfaas/faas/gateway/requests"
 	client "github.com/rancher/go-rancher/v2"
 	"github.com/stretchr/testify/assert"
 )
@@ -27,12 +26,12 @@ func Test_MakeDeleteHandler_Service_Delete_Success(t *testing.T) {
 	}
 	b, jsonErr := json.Marshal(body)
 	if jsonErr != nil {
-		log.Fatal(jsonErr)
+		logger.Fatal(jsonErr)
 	}
 
 	req, reqErr := http.NewRequest("POST", "/system/functions", bytes.NewReader(b))
 	if reqErr != nil {
-		log.Fatal(reqErr)
+		logger.Fatal(reqErr)
 	}
 
 	rr := httptest.NewRecorder()
@@ -60,7 +59,7 @@ func Test_MakeDeleteHandler_InvalidBody(t *testing.T) {
 	b := []byte(`{"name":what?}`)
 	req, reqErr := http.NewRequest("POST", "/system/functions", bytes.NewReader(b))
 	if reqErr != nil {
-		log.Fatal(reqErr)
+		logger.Fatal(reqErr)
 	}
 
 	rr := httptest.NewRecorder()
@@ -84,12 +83,12 @@ func Test_MakeDeleteHandler_Empty_FunctionName(t *testing.T) {
 	}
 	b, jsonErr := json.Marshal(invalidBody)
 	if jsonErr != nil {
-		log.Fatal(jsonErr)
+		logger.Fatal(jsonErr)
 	}
 
 	req, reqErr := http.NewRequest("POST", "/system/functions", bytes.NewReader(b))
 	if reqErr != nil {
-		log.Fatal(reqErr)
+		logger.Fatal(reqErr)
 	}
 
 	rr := httptest.NewRecorder()
@@ -113,12 +112,12 @@ func Test_MakeDeleteHandler_Service_Find_Error(t *testing.T) {
 	}
 	b, jsonErr := json.Marshal(body)
 	if jsonErr != nil {
-		log.Fatal(jsonErr)
+		logger.Fatal(jsonErr)
 	}
 
 	req, reqErr := http.NewRequest("POST", "/system/functions", bytes.NewReader(b))
 	if reqErr != nil {
-		log.Fatal(reqErr)
+		logger.Fatal(reqErr)
 	}
 
 	rr := httptest.NewRecorder()
@@ -145,12 +144,12 @@ func Test_MakeDeleteHandler_Service_Nil_Error(t *testing.T) {
 	}
 	b, jsonErr := json.Marshal(body)
 	if jsonErr != nil {
-		log.Fatal(jsonErr)
+		logger.Fatal(jsonErr)
 	}
 
 	req, reqErr := http.NewRequest("POST", "/system/functions", bytes.NewReader(b))
 	if reqErr != nil {
-		log.Fatal(reqErr)
+		logger.Fatal(reqErr)
 	}
 
 	rr := httptest.NewRecorder()
@@ -176,12 +175,12 @@ func Test_MakeDeleteHandler_Service_Delete_Error(t *testing.T) {
 	}
 	b, jsonErr := json.Marshal(body)
 	if jsonErr != nil {
-		log.Fatal(jsonErr)
+		logger.Fatal(jsonErr)
 	}
 
 	req, reqErr := http.NewRequest("POST", "/system/functions", bytes.NewReader(b))
 	if reqErr != nil {
-		log.Fatal(reqErr)
+		logger.Fatal(reqErr)
 	}
 
 	rr := httptest.NewRecorder()

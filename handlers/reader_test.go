@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -23,7 +22,7 @@ func Test_MakeFunctionReader_Get_Service_List_Error(t *testing.T) {
 
 	req, reqErr := http.NewRequest("GET", "/system/functions", nil)
 	if reqErr != nil {
-		log.Fatal(reqErr)
+		logger.Fatal(reqErr)
 	}
 
 	rr := httptest.NewRecorder()
@@ -46,7 +45,7 @@ func Test_MakeFunctionReader_Get_Service_List_No_Active_Services(t *testing.T) {
 
 	req, reqErr := http.NewRequest("GET", "/system/functions", nil)
 	if reqErr != nil {
-		log.Fatal(reqErr)
+		logger.Fatal(reqErr)
 	}
 
 	rr := httptest.NewRecorder()
@@ -81,7 +80,7 @@ func Test_MakeFunctionReader_Get_Service_List_Has_Active_Services(t *testing.T) 
 
 	req, reqErr := http.NewRequest("GET", "/system/functions", nil)
 	if reqErr != nil {
-		log.Fatal(reqErr)
+		logger.Fatal(reqErr)
 	}
 
 	rr := httptest.NewRecorder()
@@ -140,7 +139,7 @@ func Test_MakeFunctionReader_Get_Service_List_Has_Active_Services_But_Not_Labele
 
 	req, reqErr := http.NewRequest("GET", "/system/functions", nil)
 	if reqErr != nil {
-		log.Fatal(reqErr)
+		logger.Fatal(reqErr)
 	}
 
 	rr := httptest.NewRecorder()
