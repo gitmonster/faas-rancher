@@ -4,14 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
 
-	"github.com/openfaas-incubator/faas-rancher/mocks"
+	"github.com/gitmonster/faas-rancher/mocks"
 	"github.com/openfaas/faas/gateway/requests"
 	client "github.com/rancher/go-rancher/v2"
 	"github.com/stretchr/testify/assert"
@@ -32,12 +31,12 @@ func Test_MakeDeployHandler_Create_Service_Success(t *testing.T) {
 	}
 	b, err := json.Marshal(request)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 
 	req, reqErr := http.NewRequest("POST", "/system/functions", bytes.NewReader(b))
 	if reqErr != nil {
-		log.Fatal(reqErr)
+		logger.Fatal(reqErr)
 	}
 
 	mockClient.On("CreateService",
@@ -68,7 +67,7 @@ func Test_MakeDeployHandler_Bad_Json_Request(t *testing.T) {
 	badJSON := []byte(`{name: what?}`)
 	req, reqErr := http.NewRequest("POST", "/system/functions", bytes.NewReader(badJSON))
 	if reqErr != nil {
-		log.Fatal(reqErr)
+		logger.Fatal(reqErr)
 	}
 
 	rr := httptest.NewRecorder()
@@ -91,12 +90,12 @@ func Test_MakeDeployHandler_Invalid_Service_Name(t *testing.T) {
 	}
 	b, err := json.Marshal(invalidRequest)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 
 	req, reqErr := http.NewRequest("POST", "/system/functions", bytes.NewReader(b))
 	if reqErr != nil {
-		log.Fatal(reqErr)
+		logger.Fatal(reqErr)
 	}
 
 	rr := httptest.NewRecorder()
@@ -119,12 +118,12 @@ func Test_MakeDeployHandler_Create_Service_Error(t *testing.T) {
 	}
 	b, err := json.Marshal(request)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 
 	req, reqErr := http.NewRequest("POST", "/system/functions", bytes.NewReader(b))
 	if reqErr != nil {
-		log.Fatal(reqErr)
+		logger.Fatal(reqErr)
 	}
 
 	mockClient.On("CreateService",

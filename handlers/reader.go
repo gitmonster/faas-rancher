@@ -7,7 +7,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/openfaas-incubator/faas-rancher/rancher"
+	"github.com/gitmonster/faas-rancher/rancher"
+	"github.com/juju/errors"
 	"github.com/openfaas/faas/gateway/requests"
 )
 
@@ -17,13 +18,13 @@ func MakeFunctionReader(client rancher.BridgeClient) VarsHandler {
 
 		functions, err := getServiceList(client)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			handleServerError(w, errors.Annotate(err, "getServiceList"))
 			return
 		}
 
 		functionBytes, marshalErr := json.Marshal(functions)
 		if marshalErr != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			handleServerError(w, errors.Annotate(marshalErr, "Marshal"))
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")

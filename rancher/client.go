@@ -4,9 +4,13 @@
 package rancher
 
 import (
-	"fmt"
-
+	"github.com/juju/errors"
 	client "github.com/rancher/go-rancher/v2"
+	"github.com/sirupsen/logrus"
+)
+
+var (
+	logger = logrus.WithField("package", "rancher")
 )
 
 // BridgeClient is the interface for Rancher API
@@ -46,21 +50,21 @@ func NewClientForConfig(config *Config) (BridgeClient, error) {
 	})
 
 	if listErr != nil {
-		return nil, listErr
+		return nil, errors.Annotate(listErr, "List")
 	}
 
 	var stack *client.Stack
 	if len(coll.Data) == 0 {
-		fmt.Println("stack named " + config.FunctionsStackName + " not found. creating...")
+		logger.Infof("stack named %s not found. creating...", config.FunctionsStackName)
 		// create stack if not present
 		reqStack := &client.Stack{
 			Name: config.FunctionsStackName,
 		}
 		newStack, err := c.Stack.Create(reqStack)
 		if err != nil {
-			return nil, err
+			return nil, errors.Annotate(err, "Create")
 		}
-		fmt.Println("stack creation complete")
+		logger.Info("stack creation complete")
 		stack = newStack
 	} else {
 		stack = &coll.Data[0]
@@ -84,7 +88,7 @@ func (c *Client) ListServices() ([]client.Service, error) {
 		},
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "List")
 	}
 	return services.Data, nil
 }
@@ -97,21 +101,20 @@ func (c *Client) FindServiceByName(name string) (*client.Service, error) {
 		},
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "List")
 	}
 	if len(services.Data) == 0 {
-		return nil, fmt.Errorf("No service named " + name + " found.")
+		return nil, errors.Errorf("No service named %q found.", name)
 	}
 	return &services.Data[0], nil
 }
 
 // CreateService creates a service inside rancher
 func (c *Client) CreateService(spec *client.Service) (*client.Service, error) {
-
 	spec.StackId = c.functionsStackID
 	service, err := c.rancherClient.Service.Create(spec)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "Create")
 	}
 	return service, nil
 }
@@ -120,7 +123,7 @@ func (c *Client) CreateService(spec *client.Service) (*client.Service, error) {
 func (c *Client) DeleteService(spec *client.Service) error {
 	err := c.rancherClient.Service.Delete(spec)
 	if err != nil {
-		return err
+		return errors.Annotate(err, "Delete")
 	}
 
 	return nil
@@ -130,7 +133,7 @@ func (c *Client) DeleteService(spec *client.Service) error {
 func (c *Client) UpdateService(spec *client.Service, updates map[string]string) (*client.Service, error) {
 	service, err := c.rancherClient.Service.Update(spec, updates)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "Update")
 	}
 	return service, nil
 }
@@ -139,7 +142,7 @@ func (c *Client) UpdateService(spec *client.Service, updates map[string]string) 
 func (c *Client) UpgradeService(spec *client.Service, upgrade *client.ServiceUpgrade) (*client.Service, error) {
 	service, err := c.rancherClient.Service.ActionUpgrade(spec, upgrade)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "ActionUpgrade")
 	}
 	return service, nil
 }
@@ -148,7 +151,7 @@ func (c *Client) UpgradeService(spec *client.Service, upgrade *client.ServiceUpg
 func (c *Client) FinishUpgradeService(spec *client.Service) (*client.Service, error) {
 	service, err := c.rancherClient.Service.ActionFinishupgrade(spec)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "ActionFinishupgrade")
 	}
 	return service, nil
 }

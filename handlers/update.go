@@ -5,14 +5,13 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"time"
 
-	"github.com/openfaas-incubator/faas-rancher/rancher"
+	"github.com/gitmonster/faas-rancher/rancher"
+	"github.com/juju/errors"
 	"github.com/openfaas/faas/gateway/requests"
-	client "github.com/rancher/go-rancher/v2"
 )
 
 // MakeUpdateHandler creates a handler to create new functions in the cluster
@@ -26,101 +25,64 @@ func MakeUpdateHandler(client rancher.BridgeClient) VarsHandler {
 		request := requests.CreateFunctionRequest{}
 		err := json.Unmarshal(body, &request)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
+			handleBadRequest(w, errors.Annotate(err, "Unmarshal"))
 			return
 		}
 
 		if len(request.Service) == 0 {
-			w.WriteHeader(http.StatusBadRequest)
+			handleBadRequest(w, errors.New("service is empty"))
 			return
 		}
 
 		serviceSpec, findErr := client.FindServiceByName(request.Service)
 		if findErr != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			handleServerError(w, errors.Annotate(findErr, "FindServiceByName"))
 			return
 		} else if serviceSpec == nil {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
-		fmt.Println(serviceSpec.State)
+		logger.Debug(serviceSpec.State)
 
 		if serviceSpec.State != "active" {
-			fmt.Println("Service to upgrade not in active state.")
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Service is not active. Maybe another update is currently in progress?"))
+			handleServerError(w, errors.New("service to upgrade not in active state"))
 			return
 		}
 
 		upgradeSpec := makeUpgradeSpec(request)
 		_, err = client.UpgradeService(serviceSpec, upgradeSpec)
 		if err != nil {
-			fmt.Println("UPGRADE ERROR", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			handleServerError(w, errors.Annotate(err, "UpgradeService"))
 			return
 		}
+
 		go func() {
-			fmt.Println("Waiting for upgrade to finish")
+			logger.Info("Waiting for upgrade to finish")
 			for pollCounter := 20; pollCounter > 0; pollCounter-- {
 				pollResult, pollErr := client.FindServiceByName(request.Service)
-				fmt.Println(pollResult.State)
+				logger.Debug(pollResult.State)
 				if pollErr != nil {
-					fmt.Println("POLL ERROR")
+					logger.Error(errors.Annotate(pollErr, "FindServiceByName"))
 					continue
 				}
 				time.Sleep(1 * time.Second)
 
 				if pollResult.State == "upgraded" {
-					fmt.Println("Finishing upgrade")
+					logger.Debug("Finishing upgrade")
 					_, err = client.FinishUpgradeService(pollResult)
 					if err != nil {
-						fmt.Println("FINISH ERROR", err)
+						logger.Error(errors.Annotate(err, "FinishUpgradeService"))
 						return
 					}
-					fmt.Println("Upgrade finished")
+					logger.Info("Upgrade finished")
 					return
-
 				}
 			}
-			fmt.Println("Poll timeout!")
+			logger.Warn("Poll timeout!")
 		}()
 
-		fmt.Println("Updated service - " + request.Service)
+		logger.Infof("Updated service - %s", request.Service)
 		w.WriteHeader(http.StatusAccepted)
 	}
-}
-
-func makeUpgradeSpec(request requests.CreateFunctionRequest) *client.ServiceUpgrade {
-
-	envVars := make(map[string]interface{})
-	for k, v := range request.EnvVars {
-		envVars[k] = v
-	}
-
-	if len(request.EnvProcess) > 0 {
-		envVars["fprocess"] = request.EnvProcess
-	}
-
-	labels := make(map[string]interface{})
-	labels[FaasFunctionLabel] = request.Service
-	labels["io.rancher.container.pull_image"] = "always"
-
-	launchConfig := &client.LaunchConfig{
-		Environment: envVars,
-		ImageUuid:   "docker:" + request.Image, // not sure if it's ok to just prefix with 'docker:'
-		Labels:      labels,
-	}
-
-	spec := &client.ServiceUpgrade{
-		InServiceStrategy: &client.InServiceUpgradeStrategy{
-			BatchSize:              1,
-			StartFirst:             true,
-			LaunchConfig:           launchConfig,
-			SecondaryLaunchConfigs: []client.SecondaryLaunchConfig{},
-		},
-	}
-
-	return spec
 }

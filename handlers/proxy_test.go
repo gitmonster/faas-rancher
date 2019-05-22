@@ -3,14 +3,13 @@ package handlers
 import (
 	"bytes"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
 
-	"github.com/openfaas-incubator/faas-rancher/mocks"
+	"github.com/gitmonster/faas-rancher/mocks"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -29,7 +28,7 @@ func Test_MakeProxyHandler_Create_Service_Success(t *testing.T) {
 	req, err := http.NewRequest("POST", "/system/function/"+serviceName, bytes.NewReader(reqBody))
 	// req.Header.Add("Content-Type", "Some-Content-Type")
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 
 	responseBody := []byte(`{ "data": "some-data"}`)

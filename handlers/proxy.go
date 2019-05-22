@@ -6,10 +6,11 @@ package handlers
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/juju/errors"
 
 	"io/ioutil"
 )
@@ -21,8 +22,7 @@ func MakeProxy(httpDoer HttpDoer, stackName string) VarsHandler {
 		defer r.Body.Close()
 
 		if r.Method != "POST" {
-			// Requests other than POST are not suppored yet
-			w.WriteHeader(http.StatusBadRequest)
+			handleBadRequest(w, errors.New("requests other than POST are not suppored"))
 			return
 		}
 
@@ -32,7 +32,7 @@ func MakeProxy(httpDoer HttpDoer, stackName string) VarsHandler {
 
 		defer func(when time.Time) {
 			seconds := time.Since(when).Seconds()
-			log.Printf("[%s] took %f seconds\n", stamp, seconds)
+			logger.Infof("[%s] took %f seconds", stamp, seconds)
 		}(time.Now())
 
 		watchdogPort := 8080
@@ -50,10 +50,7 @@ func MakeProxy(httpDoer HttpDoer, stackName string) VarsHandler {
 
 		response, err := httpDoer.Do(request)
 		if err != nil {
-			log.Println(err.Error())
-			w.WriteHeader(http.StatusInternalServerError)
-			buf := bytes.NewBufferString("Can't reach service: " + service)
-			w.Write(buf.Bytes())
+			handleServerError(w, errors.Annotatef(err, "can't reach service: %s", service))
 			return
 		}
 
