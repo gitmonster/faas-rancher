@@ -12,7 +12,6 @@ import (
 	"github.com/gitmonster/faas-rancher/rancher"
 	"github.com/juju/errors"
 	"github.com/openfaas/faas/gateway/requests"
-	client "github.com/rancher/go-rancher/v2"
 )
 
 // MakeUpdateHandler creates a handler to create new functions in the cluster
@@ -86,36 +85,4 @@ func MakeUpdateHandler(client rancher.BridgeClient) VarsHandler {
 		logger.Infof("Updated service - %s", request.Service)
 		w.WriteHeader(http.StatusAccepted)
 	}
-}
-
-func makeUpgradeSpec(request requests.CreateFunctionRequest) *client.ServiceUpgrade {
-	envVars := make(map[string]interface{})
-	for k, v := range request.EnvVars {
-		envVars[k] = v
-	}
-
-	if len(request.EnvProcess) > 0 {
-		envVars["fprocess"] = request.EnvProcess
-	}
-
-	labels := make(map[string]interface{})
-	labels[FaasFunctionLabel] = request.Service
-	labels["io.rancher.container.pull_image"] = "always"
-
-	launchConfig := &client.LaunchConfig{
-		Environment: envVars,
-		ImageUuid:   "docker:" + request.Image, // not sure if it's ok to just prefix with 'docker:'
-		Labels:      labels,
-	}
-
-	spec := &client.ServiceUpgrade{
-		InServiceStrategy: &client.InServiceUpgradeStrategy{
-			BatchSize:              1,
-			StartFirst:             true,
-			LaunchConfig:           launchConfig,
-			SecondaryLaunchConfigs: []client.SecondaryLaunchConfig{},
-		},
-	}
-
-	return spec
 }

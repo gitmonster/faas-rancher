@@ -32,14 +32,17 @@ const (
 )
 
 func main() {
-	if os.Getenv("DEBUG") == "true" {
+	logrus.SetOutput(os.Stdout)
+	debug := getEnv("FAAS_DEBUG", "false") == "true"
+
+	if debug {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 
-	functionStackName := os.Getenv("FUNCTION_STACK_NAME")
-	cattleURL := os.Getenv("CATTLE_URL")
-	cattleAccessKey := os.Getenv("CATTLE_ACCESS_KEY")
-	cattleSecretKey := os.Getenv("CATTLE_SECRET_KEY")
+	cattleURL := getEnv("CATTLE_URL", "")
+	cattleAccessKey := getEnv("CATTLE_ACCESS_KEY", "")
+	cattleSecretKey := getEnv("CATTLE_SECRET_KEY", "")
+	functionStackName := getEnv("FUNCTION_STACK_NAME", "faas-functions")
 
 	// creates the rancher client config
 	config, err := rancher.NewClientConfig(
@@ -74,25 +77,42 @@ func main() {
 		},
 	}
 
-	wrapHandlerFunc := func(name string, fn http.HandlerFunc) http.HandlerFunc {
-		return func(w http.ResponseWriter, r *http.Request) {
-			logger.Debugf("enter %s", name)
-			defer logger.Debugf("leave %s", name)
-			fn(w, r)
-		}
-	}
+	var bootstrapHandlers bootTypes.FaaSHandlers
 
-	bootstrapHandlers := bootTypes.FaaSHandlers{
-		FunctionProxy:  wrapHandlerFunc("Proxy", handlers.MakeProxy(&proxyClient, config.FunctionsStackName).ServeHTTP),
-		DeleteHandler:  wrapHandlerFunc("DeleteHandler", handlers.MakeDeleteHandler(rancherClient).ServeHTTP),
-		DeployHandler:  wrapHandlerFunc("DeployHandler", handlers.MakeDeployHandler(rancherClient).ServeHTTP),
-		FunctionReader: wrapHandlerFunc("FunctionReader", handlers.MakeFunctionReader(rancherClient).ServeHTTP),
-		ReplicaReader:  wrapHandlerFunc("ReplicaReader", handlers.MakeReplicaReader(rancherClient).ServeHTTP),
-		ReplicaUpdater: wrapHandlerFunc("ReplicaUpdater", handlers.MakeReplicaUpdater(rancherClient).ServeHTTP),
-		UpdateHandler:  wrapHandlerFunc("UpdateHandler", handlers.MakeUpdateHandler(rancherClient).ServeHTTP),
-		HealthHandler:  wrapHandlerFunc("HealthHandler", handlers.MakeHealthHandler()),
-		InfoHandler:    wrapHandlerFunc("InfoHandler", handlers.MakeInfoHandler(Version, CommitSHA)),
-		SecretHandler:  wrapHandlerFunc("SecretHandler", handlers.MakeSecretHandler()),
+	if debug {
+		wrapHandlerFunc := func(name string, fn http.HandlerFunc) http.HandlerFunc {
+			return func(w http.ResponseWriter, r *http.Request) {
+				logger.Debugf("enter %s", name)
+				defer logger.Debugf("leave %s", name)
+				fn(w, r)
+			}
+		}
+
+		bootstrapHandlers = bootTypes.FaaSHandlers{
+			FunctionProxy:  wrapHandlerFunc("Proxy", handlers.MakeProxy(&proxyClient, config.FunctionsStackName).ServeHTTP),
+			DeleteHandler:  wrapHandlerFunc("DeleteHandler", handlers.MakeDeleteHandler(rancherClient).ServeHTTP),
+			DeployHandler:  wrapHandlerFunc("DeployHandler", handlers.MakeDeployHandler(rancherClient).ServeHTTP),
+			FunctionReader: wrapHandlerFunc("FunctionReader", handlers.MakeFunctionReader(rancherClient).ServeHTTP),
+			ReplicaReader:  wrapHandlerFunc("ReplicaReader", handlers.MakeReplicaReader(rancherClient).ServeHTTP),
+			ReplicaUpdater: wrapHandlerFunc("ReplicaUpdater", handlers.MakeReplicaUpdater(rancherClient).ServeHTTP),
+			UpdateHandler:  wrapHandlerFunc("UpdateHandler", handlers.MakeUpdateHandler(rancherClient).ServeHTTP),
+			HealthHandler:  wrapHandlerFunc("HealthHandler", handlers.MakeHealthHandler()),
+			InfoHandler:    wrapHandlerFunc("InfoHandler", handlers.MakeInfoHandler(Version, CommitSHA)),
+			SecretHandler:  wrapHandlerFunc("SecretHandler", handlers.MakeSecretHandler()),
+		}
+	} else {
+		bootstrapHandlers = bootTypes.FaaSHandlers{
+			FunctionProxy:  handlers.MakeProxy(&proxyClient, config.FunctionsStackName).ServeHTTP,
+			DeleteHandler:  handlers.MakeDeleteHandler(rancherClient).ServeHTTP,
+			DeployHandler:  handlers.MakeDeployHandler(rancherClient).ServeHTTP,
+			FunctionReader: handlers.MakeFunctionReader(rancherClient).ServeHTTP,
+			ReplicaReader:  handlers.MakeReplicaReader(rancherClient).ServeHTTP,
+			ReplicaUpdater: handlers.MakeReplicaUpdater(rancherClient).ServeHTTP,
+			UpdateHandler:  handlers.MakeUpdateHandler(rancherClient).ServeHTTP,
+			HealthHandler:  handlers.MakeHealthHandler(),
+			InfoHandler:    handlers.MakeInfoHandler(Version, CommitSHA),
+			SecretHandler:  handlers.MakeSecretHandler(),
+		}
 	}
 
 	// Todo: AE - parse port and parse timeout from env-vars
@@ -105,4 +125,12 @@ func main() {
 	}
 
 	bootstrap.Serve(&bootstrapHandlers, &bootstrapConfig)
+}
+
+func getEnv(v, def string) string {
+	if val, ok := os.LookupEnv(v); ok && len(val) > 0 {
+		return os.Getenv(v)
+	}
+
+	return def
 }

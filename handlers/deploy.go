@@ -12,7 +12,6 @@ import (
 	"github.com/gitmonster/faas-rancher/rancher"
 	"github.com/juju/errors"
 	"github.com/openfaas/faas/gateway/requests"
-	client "github.com/rancher/go-rancher/v2"
 )
 
 // ValidateDeployRequest validates that the service name is valid for Kubernetes
@@ -23,7 +22,7 @@ func ValidateDeployRequest(request *requests.CreateFunctionRequest) error {
 		return nil
 	}
 
-	return errors.Errorf("(%s) must be a valid DNS entry for service name", request.Service)
+	return errors.Errorf("%q must be a valid DNS entry for service name", request.Service)
 }
 
 // MakeDeployHandler creates a handler to create new functions in the cluster
@@ -58,41 +57,4 @@ func MakeDeployHandler(client rancher.BridgeClient) VarsHandler {
 		logger.Debug(string(body))
 		w.WriteHeader(http.StatusAccepted)
 	}
-}
-
-func makeServiceSpec(request requests.CreateFunctionRequest) *client.Service {
-	envVars := make(map[string]interface{})
-	for k, v := range request.EnvVars {
-		envVars[k] = v
-	}
-
-	if len(request.EnvProcess) > 0 {
-		envVars["fprocess"] = request.EnvProcess
-	}
-
-	// transfer request labels
-	labels := make(map[string]interface{})
-	if request.Labels != nil {
-		for k, v := range *request.Labels {
-			labels[k] = v
-		}
-	}
-
-	labels[FaasFunctionLabel] = request.Service
-	labels["io.rancher.container.pull_image"] = "always"
-
-	launchConfig := &client.LaunchConfig{
-		Environment: envVars,
-		ImageUuid:   "docker:" + request.Image, // not sure if it's ok to just prefix with 'docker:'
-		Labels:      labels,
-	}
-
-	serviceSpec := &client.Service{
-		Name:          request.Service,
-		Scale:         1,
-		StartOnCreate: true,
-		LaunchConfig:  launchConfig,
-	}
-
-	return serviceSpec
 }
