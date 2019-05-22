@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"regexp"
 
+	"github.com/gitmonster/faas-rancher/metastore"
 	"github.com/gitmonster/faas-rancher/rancher"
 	"github.com/juju/errors"
 	"github.com/openfaas/faas/gateway/requests"
@@ -30,12 +31,14 @@ func MakeDeployHandler(client rancher.BridgeClient) VarsHandler {
 	return func(w http.ResponseWriter, r *http.Request, vars map[string]string) {
 
 		defer r.Body.Close()
-
-		body, _ := ioutil.ReadAll(r.Body)
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			handleBadRequest(w, errors.Annotate(err, "ReadAll"))
+			return
+		}
 
 		request := requests.CreateFunctionRequest{}
-		err := json.Unmarshal(body, &request)
-		if err != nil {
+		if err := json.Unmarshal(body, &request); err != nil {
 			handleBadRequest(w, errors.Annotate(err, "Unmarshal"))
 			return
 		}
@@ -46,10 +49,15 @@ func MakeDeployHandler(client rancher.BridgeClient) VarsHandler {
 		}
 
 		serviceSpec := makeServiceSpec(request)
-
 		_, err = client.CreateService(serviceSpec)
 		if err != nil {
 			handleServerError(w, errors.Annotate(err, "CreateService"))
+			return
+		}
+
+		meta := metastore.FunctionMeta{}
+		if err := metastore.Update(meta.CreateFrom(&request)); err != nil {
+			handleServerError(w, errors.Annotate(err, "Write [metastore]"))
 			return
 		}
 

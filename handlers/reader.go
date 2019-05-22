@@ -9,7 +9,6 @@ import (
 
 	"github.com/gitmonster/faas-rancher/rancher"
 	"github.com/juju/errors"
-	"github.com/openfaas/faas/gateway/requests"
 )
 
 // MakeFunctionReader handler for reading functions deployed in the cluster as deployments.
@@ -31,36 +30,4 @@ func MakeFunctionReader(client rancher.BridgeClient) VarsHandler {
 		w.WriteHeader(http.StatusOK)
 		w.Write(functionBytes)
 	}
-}
-
-func getServiceList(client rancher.BridgeClient) ([]requests.Function, error) {
-	functions := []requests.Function{}
-
-	services, err := client.ListServices()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, service := range services {
-		if service.State != "active" {
-			// ignore inactive services
-			continue
-		}
-
-		if _, ok := service.LaunchConfig.Labels[FaasFunctionLabel]; ok {
-			// filter to faas function services
-			replicas := uint64(service.Scale)
-			function := requests.Function{
-				Name:              service.Name,
-				Replicas:          replicas,
-				AvailableReplicas: replicas,
-				Image:             service.LaunchConfig.ImageUuid,
-				InvocationCount:   0,
-			}
-			functions = append(functions, function)
-
-		}
-	}
-
-	return functions, nil
 }
