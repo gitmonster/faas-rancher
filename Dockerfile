@@ -15,6 +15,8 @@ EXPOSE 8080
 ENV http_proxy      ""
 ENV https_proxy     ""
 
+VOLUME ["/metastore"]
+
 COPY --from=0 /tmp/faas-rancher .
 CMD ["./faas-rancher"]
 

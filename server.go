@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gitmonster/faas-rancher/handlers"
+	"github.com/gitmonster/faas-rancher/metastore"
 	"github.com/gitmonster/faas-rancher/rancher"
 	"github.com/juju/errors"
 	bootstrap "github.com/openfaas/faas-provider"
@@ -33,7 +34,7 @@ const (
 
 func main() {
 	logrus.SetOutput(os.Stdout)
-	debug := getEnv("FAAS_DEBUG", "false") == "true"
+	debug := getEnv("DEBUG", "false") == "true"
 
 	if debug {
 		logrus.SetLevel(logrus.DebugLevel)
@@ -55,13 +56,18 @@ func main() {
 		log.Fatal(errors.Annotate(err, "NewClientConfig"))
 	}
 
-	// create the rancher REST client
+	logger.Debug("created rancher client")
 	rancherClient, err := rancher.NewClientForConfig(config)
 	if err != nil {
 		logger.Fatal(errors.Annotate(err, "NewClientForConfig"))
 	}
 
-	logger.Info("Created Rancher Client")
+	logger.Debug("open storage")
+	if err := metastore.Open(); err != nil {
+		logger.Fatal(errors.Annotate(err, "Open [metastore]"))
+	}
+
+	defer metastore.Close()
 
 	proxyClient := http.Client{
 		Transport: &http.Transport{

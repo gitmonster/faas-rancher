@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gitmonster/faas-rancher/metastore"
 	"github.com/gitmonster/faas-rancher/rancher"
 	"github.com/juju/errors"
 	"github.com/openfaas/faas/gateway/requests"
@@ -54,6 +55,12 @@ func MakeUpdateHandler(client rancher.BridgeClient) VarsHandler {
 		_, err = client.UpgradeService(serviceSpec, upgradeSpec)
 		if err != nil {
 			handleServerError(w, errors.Annotate(err, "UpgradeService"))
+			return
+		}
+
+		meta := metastore.FunctionMeta{}
+		if err := metastore.Update(meta.CreateFrom(&request)); err != nil {
+			handleServerError(w, errors.Annotate(err, "Write [metastore]"))
 			return
 		}
 

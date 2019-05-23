@@ -8,12 +8,23 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/gitmonster/faas-rancher/helper"
+	"github.com/gitmonster/faas-rancher/metastore"
+	"github.com/gitmonster/faas-rancher/rancher"
 	"github.com/gorilla/mux"
+	"github.com/juju/errors"
+	"github.com/openfaas/faas/gateway/requests"
+	client "github.com/rancher/go-rancher/v2"
 	"github.com/sirupsen/logrus"
 )
 
 var (
 	logger = logrus.WithField("package", "handlers")
+)
+
+const (
+	// FaasFunctionLabel is the label set to faas function containers
+	FaasFunctionLabel = "faas_function"
 )
 
 // VarsHandler a wrapper type for mux.Vars
@@ -33,4 +44,130 @@ func handleServerError(w http.ResponseWriter, err error) {
 func handleBadRequest(w http.ResponseWriter, err error) {
 	logger.Error(err)
 	http.Error(w, err.Error(), http.StatusBadRequest)
+}
+
+func getServiceList(client rancher.BridgeClient) ([]requests.Function, error) {
+	functions := []requests.Function{}
+
+	services, err := client.ListServices()
+	if err != nil {
+		return nil, errors.Annotate(err, "ListServices")
+	}
+
+	for _, service := range services {
+		if service.State != "active" {
+			// ignore inactive services
+			continue
+		}
+
+		if _, ok := service.LaunchConfig.Labels[FaasFunctionLabel]; ok {
+			meta := &metastore.FunctionMeta{
+				Service: service.Name,
+			}
+
+			if err := metastore.Read(meta); err != nil {
+				if err != metastore.ErrEntityNotFound {
+					return nil, errors.Annotate(err, "Read [metastore]")
+				}
+			}
+
+			// restore meta from rancher service
+			if err == metastore.ErrEntityNotFound {
+				meta.Service = service.Name
+				meta.Image = service.LaunchConfig.ImageUuid
+				meta.Labels = service.LaunchConfig.Labels
+				meta.Annotations = make(map[string]interface{})
+
+				if envProcess, ok := service.LaunchConfig.Environment["fprocess"]; ok {
+					if envProcess, ok := envProcess.(string); ok {
+						meta.EnvProcess = envProcess
+					}
+				}
+
+				if err := metastore.Update(meta); err != nil {
+					return nil, errors.Annotate(err, "Update [metastore]")
+				}
+			}
+
+			// filter to faas function services
+			replicas := uint64(service.Scale)
+			function := requests.Function{
+				Name:              meta.Service,
+				Replicas:          replicas,
+				AvailableReplicas: replicas,
+				Image:             meta.Image,
+				EnvProcess:        meta.EnvProcess,
+				Labels:            helper.ToFaasMap(meta.Labels),
+				Annotations:       helper.ToFaasMap(meta.Annotations),
+				InvocationCount:   0,
+			}
+
+			functions = append(functions, function)
+		}
+	}
+
+	return functions, nil
+}
+
+func makeUpgradeSpec(request requests.CreateFunctionRequest) *client.ServiceUpgrade {
+	envVars := make(map[string]interface{})
+	for k, v := range request.EnvVars {
+		envVars[k] = v
+	}
+
+	if len(request.EnvProcess) > 0 {
+		envVars["fprocess"] = request.EnvProcess
+	}
+
+	labels := helper.ToRancherMap(request.Labels)
+	labels[FaasFunctionLabel] = request.Service
+	labels["io.rancher.container.pull_image"] = "always"
+
+	launchConfig := &client.LaunchConfig{
+		Environment: envVars,
+		ImageUuid:   "docker:" + request.Image, // not sure if it's ok to just prefix with 'docker:'
+		Labels:      labels,
+	}
+
+	spec := &client.ServiceUpgrade{
+		InServiceStrategy: &client.InServiceUpgradeStrategy{
+			BatchSize:              1,
+			StartFirst:             true,
+			LaunchConfig:           launchConfig,
+			SecondaryLaunchConfigs: []client.SecondaryLaunchConfig{},
+		},
+	}
+
+	return spec
+}
+
+func makeServiceSpec(request requests.CreateFunctionRequest) *client.Service {
+	envVars := make(map[string]interface{})
+	for k, v := range request.EnvVars {
+		envVars[k] = v
+	}
+
+	if len(request.EnvProcess) > 0 {
+		envVars["fprocess"] = request.EnvProcess
+	}
+
+	labels := helper.ToRancherMap(request.Labels)
+	labels[FaasFunctionLabel] = request.Service
+	labels["io.rancher.container.pull_image"] = "always"
+
+	launchConfig := &client.LaunchConfig{
+		Environment: envVars,
+		ImageUuid:   "docker:" + request.Image, // not sure if it's ok to just prefix with 'docker:'
+		Labels:      labels,
+	}
+
+	serviceSpec := &client.Service{
+		Data:          helper.ToRancherMap(request.Annotations), // store Annotations in Data
+		Name:          request.Service,
+		Scale:         1,
+		StartOnCreate: true,
+		LaunchConfig:  launchConfig,
+	}
+
+	return serviceSpec
 }
