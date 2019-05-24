@@ -16,7 +16,7 @@ import (
 func Test_MakeProxyHandler_Create_Service_Success(t *testing.T) {
 	assert := assert.New(t)
 	// Arrange
-	mockClient := new(mocks.HttpDoer)
+	mockClient := new(mocks.HTTPDoer)
 	stackName := "some_stackname"
 	serviceName := "some-service"
 	vars := map[string]string{

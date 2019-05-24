@@ -6,25 +6,21 @@ package handlers
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/juju/errors"
-
 	"io/ioutil"
+
+	"github.com/openfaas/faas/gateway/requests"
 )
 
 // MakeProxy creates a proxy for HTTP web requests which can be routed to a function.
-func MakeProxy(httpDoer HttpDoer, stackName string) VarsHandler {
+func MakeProxy(httpDoer HTTPDoer, stackName string) VarsHandler {
 
 	return func(w http.ResponseWriter, r *http.Request, vars map[string]string) {
 		defer r.Body.Close()
-
-		if r.Method != "POST" {
-			handleBadRequest(w, errors.New("requests other than POST are not suppored"))
-			return
-		}
 
 		service := vars["name"]
 
@@ -32,7 +28,7 @@ func MakeProxy(httpDoer HttpDoer, stackName string) VarsHandler {
 
 		defer func(when time.Time) {
 			seconds := time.Since(when).Seconds()
-			logger.Infof("[%s] took %f seconds", stamp, seconds)
+			log.Printf("[%s] took %f seconds\n", stamp, seconds)
 		}(time.Now())
 
 		watchdogPort := 8080
@@ -42,7 +38,8 @@ func MakeProxy(httpDoer HttpDoer, stackName string) VarsHandler {
 
 		url := fmt.Sprintf("http://%s.%s:%d/", service, stackName, watchdogPort)
 
-		request, _ := http.NewRequest("POST", url, bytes.NewReader(requestBody))
+		requests.NewForwardRequest(r.Method, *r.URL)
+		request, _ := http.NewRequest(r.Method, url, bytes.NewReader(requestBody))
 
 		copyHeaders(&request.Header, &r.Header)
 
@@ -50,7 +47,10 @@ func MakeProxy(httpDoer HttpDoer, stackName string) VarsHandler {
 
 		response, err := httpDoer.Do(request)
 		if err != nil {
-			handleServerError(w, errors.Annotatef(err, "can't reach service: %s", service))
+			log.Println(err.Error())
+			w.WriteHeader(http.StatusInternalServerError)
+			buf := bytes.NewBufferString("Can't reach service: " + service)
+			w.Write(buf.Bytes())
 			return
 		}
 
