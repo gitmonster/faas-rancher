@@ -29,3 +29,8 @@ func (p *FunctionMeta) CreateFrom(req *requests.CreateFunctionRequest) *Function
 
 	return p
 }
+
+func (p *FunctionMeta) Valid() bool {
+	return p.Service != "" &&
+		p.Image != ""
+}

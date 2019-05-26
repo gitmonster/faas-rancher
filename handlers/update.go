@@ -20,18 +20,20 @@ func MakeUpdateHandler(client rancher.BridgeClient) VarsHandler {
 	return func(w http.ResponseWriter, r *http.Request, vars map[string]string) {
 
 		defer r.Body.Close()
-
-		body, _ := ioutil.ReadAll(r.Body)
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			handleBadRequest(w, errors.Annotate(err, "ReadAll"))
+			return
+		}
 
 		request := requests.CreateFunctionRequest{}
-		err := json.Unmarshal(body, &request)
-		if err != nil {
+		if err := json.Unmarshal(body, &request); err != nil {
 			handleBadRequest(w, errors.Annotate(err, "Unmarshal"))
 			return
 		}
 
 		if len(request.Service) == 0 {
-			handleBadRequest(w, errors.New("service is empty"))
+			handleBadRequest(w, errors.New("Service is empty"))
 			return
 		}
 
@@ -44,15 +46,18 @@ func MakeUpdateHandler(client rancher.BridgeClient) VarsHandler {
 			return
 		}
 
-		logger.Debug(serviceSpec.State)
-
 		if serviceSpec.State != "active" {
-			handleServerError(w, errors.New("service to upgrade not in active state"))
+			handleServerError(w, errors.New("service to upgrade is not in active state"))
 			return
 		}
 
-		upgradeSpec := makeUpgradeSpec(request)
-		_, err = client.UpgradeService(serviceSpec, upgradeSpec)
+		spec, err := makeUpgradeSpec(client, request)
+		if err != nil {
+			handleServerError(w, errors.Annotate(err, "makeUpgradeSpec"))
+			return
+		}
+
+		_, err = client.UpgradeService(serviceSpec, spec)
 		if err != nil {
 			handleServerError(w, errors.Annotate(err, "UpgradeService"))
 			return
@@ -60,13 +65,13 @@ func MakeUpdateHandler(client rancher.BridgeClient) VarsHandler {
 
 		meta := metastore.FunctionMeta{}
 		if err := metastore.Update(meta.CreateFrom(&request)); err != nil {
-			handleServerError(w, errors.Annotate(err, "Write [metastore]"))
+			handleServerError(w, errors.Annotate(err, "Update [metastore]"))
 			return
 		}
 
 		go func() {
 			logger.Info("Waiting for upgrade to finish")
-			for pollCounter := 20; pollCounter > 0; pollCounter-- {
+			for pollCounter := 30; pollCounter > 0; pollCounter-- {
 				pollResult, pollErr := client.FindServiceByName(request.Service)
 				logger.Debug(pollResult.State)
 				if pollErr != nil {
@@ -89,7 +94,7 @@ func MakeUpdateHandler(client rancher.BridgeClient) VarsHandler {
 			logger.Warn("Poll timeout!")
 		}()
 
-		logger.Infof("Updated service - %s", request.Service)
+		logger.Infof("Service %q updated", request.Service)
 		w.WriteHeader(http.StatusAccepted)
 	}
 }
