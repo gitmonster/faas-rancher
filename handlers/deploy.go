@@ -48,7 +48,12 @@ func MakeDeployHandler(client rancher.BridgeClient) VarsHandler {
 			return
 		}
 
-		serviceSpec := makeServiceSpec(request)
+		serviceSpec, err := makeServiceSpec(client, request)
+		if err != nil {
+			handleServerError(w, errors.Annotate(err, "makeServiceSpec"))
+			return
+		}
+
 		_, err = client.CreateService(serviceSpec)
 		if err != nil {
 			handleServerError(w, errors.Annotate(err, "CreateService"))
@@ -57,12 +62,11 @@ func MakeDeployHandler(client rancher.BridgeClient) VarsHandler {
 
 		meta := metastore.FunctionMeta{}
 		if err := metastore.Update(meta.CreateFrom(&request)); err != nil {
-			handleServerError(w, errors.Annotate(err, "Write [metastore]"))
+			handleServerError(w, errors.Annotate(err, "Update [metastore]"))
 			return
 		}
 
-		logger.Infof("Created service %s", request.Service)
-		logger.Debug(string(body))
+		logger.Debugf("Service %q created", request.Service)
 		w.WriteHeader(http.StatusAccepted)
 	}
 }

@@ -13,8 +13,9 @@ import (
 	"github.com/gitmonster/faas-rancher/rancher"
 	"github.com/gorilla/mux"
 	"github.com/juju/errors"
+	"github.com/openfaas/faas-cli/schema"
 	"github.com/openfaas/faas/gateway/requests"
-	client "github.com/rancher/go-rancher/v2"
+	rancherClient "github.com/rancher/go-rancher/v2"
 	"github.com/sirupsen/logrus"
 )
 
@@ -63,6 +64,7 @@ func getServiceList(client rancher.BridgeClient) ([]requests.Function, error) {
 		if _, ok := service.LaunchConfig.Labels[FaasFunctionLabel]; ok {
 			meta := &metastore.FunctionMeta{
 				Service: service.Name,
+				Image:   service.LaunchConfig.ImageUuid,
 			}
 
 			if err := metastore.Read(meta); err != nil {
@@ -109,39 +111,57 @@ func getServiceList(client rancher.BridgeClient) ([]requests.Function, error) {
 	return functions, nil
 }
 
-func makeUpgradeSpec(request requests.CreateFunctionRequest) *client.ServiceUpgrade {
-	envVars := make(map[string]interface{})
-	for k, v := range request.EnvVars {
-		envVars[k] = v
+func makeUpgradeSpec(
+
+	client rancher.BridgeClient,
+	request requests.CreateFunctionRequest,
+
+) (*rancherClient.ServiceUpgrade, error) {
+	lc, err := launchConfigFromReq(client, request)
+	if err != nil {
+		return nil, errors.Annotate(err, "launchConfigFromReq")
 	}
 
-	if len(request.EnvProcess) > 0 {
-		envVars["fprocess"] = request.EnvProcess
-	}
-
-	labels := helper.ToRancherMap(request.Labels)
-	labels[FaasFunctionLabel] = request.Service
-	labels["io.rancher.container.pull_image"] = "always"
-
-	launchConfig := &client.LaunchConfig{
-		Environment: envVars,
-		ImageUuid:   "docker:" + request.Image, // not sure if it's ok to just prefix with 'docker:'
-		Labels:      labels,
-	}
-
-	spec := &client.ServiceUpgrade{
-		InServiceStrategy: &client.InServiceUpgradeStrategy{
+	spec := &rancherClient.ServiceUpgrade{
+		InServiceStrategy: &rancherClient.InServiceUpgradeStrategy{
 			BatchSize:              1,
 			StartFirst:             true,
-			LaunchConfig:           launchConfig,
-			SecondaryLaunchConfigs: []client.SecondaryLaunchConfig{},
+			LaunchConfig:           lc,
+			SecondaryLaunchConfigs: []rancherClient.SecondaryLaunchConfig{},
 		},
 	}
 
-	return spec
+	return spec, nil
 }
 
-func makeServiceSpec(request requests.CreateFunctionRequest) *client.Service {
+func makeServiceSpec(
+
+	client rancher.BridgeClient,
+	request requests.CreateFunctionRequest,
+
+) (*rancherClient.Service, error) {
+	lc, err := launchConfigFromReq(client, request)
+	if err != nil {
+		return nil, errors.Annotate(err, "launchConfigFromReq")
+	}
+
+	serviceSpec := &rancherClient.Service{
+		Name:          request.Service,
+		Scale:         1,
+		StartOnCreate: true,
+		LaunchConfig:  lc,
+	}
+
+	return serviceSpec, nil
+}
+
+func launchConfigFromReq(
+
+	client rancher.BridgeClient,
+	request requests.CreateFunctionRequest,
+
+) (*rancherClient.LaunchConfig, error) {
+
 	envVars := make(map[string]interface{})
 	for k, v := range request.EnvVars {
 		envVars[k] = v
@@ -155,19 +175,29 @@ func makeServiceSpec(request requests.CreateFunctionRequest) *client.Service {
 	labels[FaasFunctionLabel] = request.Service
 	labels["io.rancher.container.pull_image"] = "always"
 
-	launchConfig := &client.LaunchConfig{
+	lc := &rancherClient.LaunchConfig{
 		Environment: envVars,
 		ImageUuid:   "docker:" + request.Image, // not sure if it's ok to just prefix with 'docker:'
 		Labels:      labels,
 	}
 
-	serviceSpec := &client.Service{
-		Data:          helper.ToRancherMap(request.Annotations), // store Annotations in Data
-		Name:          request.Service,
-		Scale:         1,
-		StartOnCreate: true,
-		LaunchConfig:  launchConfig,
+	for _, name := range request.Secrets {
+		s := schema.Secret{
+			Name: name,
+		}
+
+		sec, err := lookupSecret(client, &s)
+		if err != nil {
+			return nil, errors.Annotate(err, "lookupSecret")
+		}
+
+		ref := rancherClient.SecretReference{
+			Name:     sec.Name,
+			SecretId: sec.Id,
+		}
+
+		lc.Secrets = append(lc.Secrets, ref)
 	}
 
-	return serviceSpec
+	return lc, nil
 }

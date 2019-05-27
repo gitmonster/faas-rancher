@@ -20,7 +20,7 @@ var (
 var (
 	ErrEntityNotFound         = errors.New("entity not found")
 	ErrDatabaseNotInitialized = errors.New("database not initialized")
-	ErrServiceNameUndefined   = errors.New("serviceNameUndefined")
+	ErrInvalidService         = errors.New("invalid service")
 )
 
 //Open opens a database
@@ -55,8 +55,8 @@ func Update(meta *FunctionMeta) error {
 		return ErrDatabaseNotInitialized
 	}
 
-	if meta.Service == "" {
-		return ErrServiceNameUndefined
+	if !meta.Valid() {
+		return ErrInvalidService
 	}
 
 	return database.Update(func(tx *bolt.Tx) error {
@@ -76,8 +76,8 @@ func Read(meta *FunctionMeta) error {
 		return ErrDatabaseNotInitialized
 	}
 
-	if meta.Service == "" {
-		return ErrServiceNameUndefined
+	if !meta.Valid() {
+		return ErrInvalidService
 	}
 
 	return database.View(func(tx *bolt.Tx) error {
@@ -92,5 +92,21 @@ func Read(meta *FunctionMeta) error {
 		}
 
 		return nil
+	})
+}
+
+// Delete deletes metadata related to a service
+func Delete(meta *FunctionMeta) error {
+	if database == nil {
+		return ErrDatabaseNotInitialized
+	}
+
+	if !meta.Valid() {
+		return ErrInvalidService
+	}
+
+	return database.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(bucketNameFunctions)
+		return b.Delete([]byte(meta.Service))
 	})
 }

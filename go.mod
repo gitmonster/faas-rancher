@@ -9,8 +9,10 @@ require (
 	github.com/juju/errors v0.0.0-20190207033735-e65537c515d7
 	github.com/juju/loggo v0.0.0-20190212223446-d976af380377 // indirect
 	github.com/juju/testing v0.0.0-20190429233213-dfc56b8c09fc // indirect
+	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/openfaas/faas v0.0.0-20190404080517-fa93655d90d1
+	github.com/openfaas/faas-cli v0.0.0-20190524083140-5174596302de
 	github.com/openfaas/faas-provider v0.0.0-20190502232355-6a76a052deb1
 	github.com/pkg/errors v0.0.0-20160724024327-1d2e60385a13 // indirect
 	github.com/rancher/go-rancher v0.0.0-20170915171953-821d581e449e

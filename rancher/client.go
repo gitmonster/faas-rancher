@@ -22,6 +22,11 @@ type BridgeClient interface {
 	UpdateService(spec *client.Service, updates map[string]string) (*client.Service, error)
 	UpgradeService(spec *client.Service, upgrade *client.ServiceUpgrade) (*client.Service, error)
 	FinishUpgradeService(spec *client.Service) (*client.Service, error)
+	CreateSecret(spec *client.Secret) (*client.Secret, error)
+	ListSecrets(listOpts *client.ListOpts) (*client.SecretCollection, error)
+	DeleteSecret(spec *client.Secret) error
+	UpdateSecret(spec *client.Secret, update interface{}) (*client.Secret, error)
+	CreateSecretReference(spec *client.SecretReference) (*client.SecretReference, error)
 }
 
 // Client is the REST client type
@@ -103,10 +108,12 @@ func (c *Client) FindServiceByName(name string) (*client.Service, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "List")
 	}
-	if len(services.Data) == 0 {
-		return nil, errors.Errorf("No service named %q found.", name)
+
+	if len(services.Data) > 0 {
+		return &services.Data[0], nil
 	}
-	return &services.Data[0], nil
+
+	return nil, nil
 }
 
 // CreateService creates a service inside rancher
@@ -154,4 +161,49 @@ func (c *Client) FinishUpgradeService(spec *client.Service) (*client.Service, er
 		return nil, errors.Annotate(err, "ActionFinishupgrade")
 	}
 	return service, nil
+}
+
+// CreateSecret creates a rancher secret
+func (c *Client) CreateSecret(spec *client.Secret) (*client.Secret, error) {
+	secret, err := c.rancherClient.Secret.Create(spec)
+	if err != nil {
+		return nil, errors.Annotate(err, "Create")
+	}
+	return secret, nil
+}
+
+// ListSecrets lists rancher secrets
+func (c *Client) ListSecrets(listOpts *client.ListOpts) (*client.SecretCollection, error) {
+	coll, err := c.rancherClient.Secret.List(listOpts)
+	if err != nil {
+		return nil, errors.Annotate(err, "List")
+	}
+	return coll, nil
+}
+
+// DeleteSecret deletes a rancher secret
+func (c *Client) DeleteSecret(spec *client.Secret) error {
+	if err := c.rancherClient.Secret.Delete(spec); err != nil {
+		return errors.Annotate(err, "Delete")
+	}
+
+	return nil
+}
+
+// UpdateSecret updates a rancher secret
+func (c *Client) UpdateSecret(spec *client.Secret, update interface{}) (*client.Secret, error) {
+	secret, err := c.rancherClient.Secret.Update(spec, update)
+	if err != nil {
+		return nil, errors.Annotate(err, "Update")
+	}
+	return secret, nil
+}
+
+// UpdateSecret updates a rancher secret
+func (c *Client) CreateSecretReference(spec *client.SecretReference) (*client.SecretReference, error) {
+	secret, err := c.rancherClient.SecretReference.Create(spec)
+	if err != nil {
+		return nil, errors.Annotate(err, "Create")
+	}
+	return secret, nil
 }

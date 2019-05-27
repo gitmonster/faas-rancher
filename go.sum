@@ -13,6 +13,8 @@ github.com/juju/loggo v0.0.0-20190212223446-d976af380377 h1:n6QjW3g5JNY3xPmIjFt6
 github.com/juju/loggo v0.0.0-20190212223446-d976af380377/go.mod h1:vgyd7OREkbtVEN/8IXZe5Ooef3LQePvuBm9UWj6ZL8U=
 github.com/juju/testing v0.0.0-20190429233213-dfc56b8c09fc h1:5xUWujf6ES9tEpFHFzI34vcHm8U07lGjxAuJML3qwqM=
 github.com/juju/testing v0.0.0-20190429233213-dfc56b8c09fc/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
+github.com/kelseyhightower/envconfig v1.4.0 h1:Im6hONhd3pLkfDFsbRgu68RDNkGF1r3dvMUtDTo2cv8=
+github.com/kelseyhightower/envconfig v1.4.0/go.mod h1:cccZRl6mQpaq41TPp5QxidR+Sa3axMbJDNb//FQX6Gg=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1 h1:mweAR1A6xJ3oS2pRaGiHgQ4OO8tzTaLawm8vnODuwDk=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/kr/pretty v0.1.0 h1:L/CwN0zerZDmRFUapSPitk6f+Q3+0za1rQkzVuMiMFI=
@@ -22,6 +24,8 @@ github.com/kr/text v0.1.0 h1:45sCR5RtlFHMR4UwH9sdQ5TC8v0qDQCHnXt+kaKSTVE=
 github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
 github.com/openfaas/faas v0.0.0-20190404080517-fa93655d90d1 h1:IKRf+/XAJXPNlggSak2hm6+tSRPXkh5gZ9hI1mtpg8Q=
 github.com/openfaas/faas v0.0.0-20190404080517-fa93655d90d1/go.mod h1:E0m2rLup0Vvxg53BKxGgaYAGcZa3Xl+vvL7vSi5yQ14=
+github.com/openfaas/faas-cli v0.0.0-20190524083140-5174596302de h1:Qbi4qeBMxwrrgS0o7cfCep3yiZ/Qwn5rtHoBkDkiNMI=
+github.com/openfaas/faas-cli v0.0.0-20190524083140-5174596302de/go.mod h1:u/KO+e43wkagC0lqM1eaqNEWEBdg08Q1ugP/idj39MM=
 github.com/openfaas/faas-provider v0.0.0-20190502232355-6a76a052deb1 h1:9gfp6DzD6HwVI2poTvbRW2qpBA3HqP8h4rpRF+0Rrg8=
 github.com/openfaas/faas-provider v0.0.0-20190502232355-6a76a052deb1/go.mod h1:W4OIp33RUOpR7wW+omJB/7GhIydRmYXvKf/VqUKI4yM=
 github.com/pkg/errors v0.0.0-20160724024327-1d2e60385a13 h1:e6/SXVo0ZdbgygEbdoVv5hxPVC1Bwdy5ml0vGZwQxqg=

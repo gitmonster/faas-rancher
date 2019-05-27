@@ -4,9 +4,10 @@
 package main
 
 import (
+	"fmt"
 	"log"
-	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -14,7 +15,9 @@ import (
 	"github.com/gitmonster/faas-rancher/metastore"
 	"github.com/gitmonster/faas-rancher/rancher"
 	"github.com/juju/errors"
+	"github.com/kelseyhightower/envconfig"
 	bootstrap "github.com/openfaas/faas-provider"
+	proxy "github.com/openfaas/faas-provider/proxy"
 	bootTypes "github.com/openfaas/faas-provider/types"
 	"github.com/sirupsen/logrus"
 )
@@ -22,35 +25,46 @@ import (
 var (
 	// CommitSHA gets overwritten by build process
 	logger    = logrus.WithField("package", "main")
+	settings  Settings
 	CommitSHA = "n/a"
 )
 
 const (
-	// TimeoutSeconds used for http client
-	TimeoutSeconds = 2
 	// Version is the current version
 	Version = "0.13.0"
 )
 
+type Settings struct {
+	Debug                  bool          `default:"false"`
+	RancherCattleURL       string        `default:"" required:"true" split_words:"true"`
+	RancherCattleAccessKey string        `default:"" required:"true" split_words:"true"`
+	RancherCattleSecretKey string        `default:"" required:"true" split_words:"true"`
+	FaasStackName          string        `default:"faas-functions" required:"true" split_words:"true"`
+	FaasProxyTimeout       time.Duration `default:"10s" split_words:"true"`
+	FaasReadTimeout        time.Duration `default:"8s" split_words:"true"`
+	FaasWriteTimeout       time.Duration `default:"8s" split_words:"true"`
+	FaasPort               int           `default:"8080" split_words:"true"`
+}
+
 func main() {
 	logrus.SetOutput(os.Stdout)
-	debug := getEnv("DEBUG", "false") == "true"
 
-	if debug {
+	logger.Info("process settings")
+	if err := envconfig.Process("", &settings); err != nil {
+		logger.Fatal(errors.Annotate(err, "Process [settings"))
+	}
+
+	if settings.Debug {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 
-	cattleURL := getEnv("CATTLE_URL", "")
-	cattleAccessKey := getEnv("CATTLE_ACCESS_KEY", "")
-	cattleSecretKey := getEnv("CATTLE_SECRET_KEY", "")
-	functionStackName := getEnv("FUNCTION_STACK_NAME", "faas-functions")
-
 	// creates the rancher client config
 	config, err := rancher.NewClientConfig(
-		functionStackName,
-		cattleURL,
-		cattleAccessKey,
-		cattleSecretKey)
+		settings.FaasStackName,
+		settings.RancherCattleURL,
+		settings.RancherCattleAccessKey,
+		settings.RancherCattleSecretKey,
+	)
 
 	if err != nil {
 		log.Fatal(errors.Annotate(err, "NewClientConfig"))
@@ -69,24 +83,11 @@ func main() {
 
 	defer metastore.Close()
 
-	proxyClient := http.Client{
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			DialContext: (&net.Dialer{
-				Timeout:   3 * time.Second,
-				KeepAlive: 0,
-			}).DialContext,
-			MaxIdleConns:          1,
-			DisableKeepAlives:     true,
-			IdleConnTimeout:       120 * time.Millisecond,
-			ExpectContinueTimeout: 1500 * time.Millisecond,
-		},
-	}
-
+	resolver := NewFunctionURLResolver(8080)
 	var bootstrapHandlers bootTypes.FaaSHandlers
 
-	if debug {
-		wrapHandlerFunc := func(name string, fn http.HandlerFunc) http.HandlerFunc {
+	if settings.Debug {
+		decorateDebug := func(name string, fn http.HandlerFunc) http.HandlerFunc {
 			return func(w http.ResponseWriter, r *http.Request) {
 				logger.Debugf("enter %s", name)
 				defer logger.Debugf("leave %s", name)
@@ -95,48 +96,59 @@ func main() {
 		}
 
 		bootstrapHandlers = bootTypes.FaaSHandlers{
-			FunctionProxy:  wrapHandlerFunc("Proxy", handlers.MakeProxy(&proxyClient, config.FunctionsStackName).ServeHTTP),
-			DeleteHandler:  wrapHandlerFunc("DeleteHandler", handlers.MakeDeleteHandler(rancherClient).ServeHTTP),
-			DeployHandler:  wrapHandlerFunc("DeployHandler", handlers.MakeDeployHandler(rancherClient).ServeHTTP),
-			FunctionReader: wrapHandlerFunc("FunctionReader", handlers.MakeFunctionReader(rancherClient).ServeHTTP),
-			ReplicaReader:  wrapHandlerFunc("ReplicaReader", handlers.MakeReplicaReader(rancherClient).ServeHTTP),
-			ReplicaUpdater: wrapHandlerFunc("ReplicaUpdater", handlers.MakeReplicaUpdater(rancherClient).ServeHTTP),
-			UpdateHandler:  wrapHandlerFunc("UpdateHandler", handlers.MakeUpdateHandler(rancherClient).ServeHTTP),
-			HealthHandler:  wrapHandlerFunc("HealthHandler", handlers.MakeHealthHandler()),
-			InfoHandler:    wrapHandlerFunc("InfoHandler", handlers.MakeInfoHandler(Version, CommitSHA)),
-			SecretHandler:  wrapHandlerFunc("SecretHandler", handlers.MakeSecretHandler()),
+			FunctionProxy:  decorateDebug("Proxy", proxy.NewHandlerFunc(settings.FaasProxyTimeout, resolver)),
+			DeleteHandler:  decorateDebug("DeleteHandler", handlers.MakeDeleteHandler(rancherClient).ServeHTTP),
+			DeployHandler:  decorateDebug("DeployHandler", handlers.MakeDeployHandler(rancherClient).ServeHTTP),
+			FunctionReader: decorateDebug("FunctionReader", handlers.MakeFunctionReader(rancherClient).ServeHTTP),
+			ReplicaReader:  decorateDebug("ReplicaReader", handlers.MakeReplicaReader(rancherClient).ServeHTTP),
+			ReplicaUpdater: decorateDebug("ReplicaUpdater", handlers.MakeReplicaUpdater(rancherClient).ServeHTTP),
+			UpdateHandler:  decorateDebug("UpdateHandler", handlers.MakeUpdateHandler(rancherClient).ServeHTTP),
+			SecretHandler:  decorateDebug("SecretHandler", handlers.MakeSecretHandler(rancherClient)),
+			InfoHandler:    decorateDebug("InfoHandler", handlers.MakeInfoHandler(Version, CommitSHA)),
+			HealthHandler:  decorateDebug("HealthHandler", handlers.MakeHealthHandler()),
 		}
 	} else {
 		bootstrapHandlers = bootTypes.FaaSHandlers{
-			FunctionProxy:  handlers.MakeProxy(&proxyClient, config.FunctionsStackName).ServeHTTP,
+			FunctionProxy:  proxy.NewHandlerFunc(settings.FaasProxyTimeout, resolver),
 			DeleteHandler:  handlers.MakeDeleteHandler(rancherClient).ServeHTTP,
 			DeployHandler:  handlers.MakeDeployHandler(rancherClient).ServeHTTP,
 			FunctionReader: handlers.MakeFunctionReader(rancherClient).ServeHTTP,
 			ReplicaReader:  handlers.MakeReplicaReader(rancherClient).ServeHTTP,
 			ReplicaUpdater: handlers.MakeReplicaUpdater(rancherClient).ServeHTTP,
 			UpdateHandler:  handlers.MakeUpdateHandler(rancherClient).ServeHTTP,
-			HealthHandler:  handlers.MakeHealthHandler(),
+			SecretHandler:  handlers.MakeSecretHandler(rancherClient),
 			InfoHandler:    handlers.MakeInfoHandler(Version, CommitSHA),
-			SecretHandler:  handlers.MakeSecretHandler(),
+			HealthHandler:  handlers.MakeHealthHandler(),
 		}
 	}
 
-	// Todo: AE - parse port and parse timeout from env-vars
-	var port int
-	port = 8080
+	port := settings.FaasPort
 	bootstrapConfig := bootTypes.FaaSConfig{
-		ReadTimeout:  time.Second * 8,
-		WriteTimeout: time.Second * 8,
+		ReadTimeout:  settings.FaasReadTimeout,
+		WriteTimeout: settings.FaasWriteTimeout,
 		TCPPort:      &port,
 	}
 
 	bootstrap.Serve(&bootstrapHandlers, &bootstrapConfig)
 }
 
-func getEnv(v, def string) string {
-	if val, ok := os.LookupEnv(v); ok && len(val) > 0 {
-		return os.Getenv(v)
+type FunctionURLResolver struct {
+	watchdogPort int
+}
+
+func (p *FunctionURLResolver) Resolve(service string) (url.URL, error) {
+	u, err := url.Parse(fmt.Sprintf("http://%s.%s:%d/",
+		service,
+		settings.FaasStackName,
+		p.watchdogPort,
+	))
+	return *u, err
+}
+
+func NewFunctionURLResolver(watchdogPort int) *FunctionURLResolver {
+	r := FunctionURLResolver{
+		watchdogPort: watchdogPort,
 	}
 
-	return def
+	return &r
 }

@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/gitmonster/faas-rancher/metastore"
 	"github.com/gitmonster/faas-rancher/rancher"
 	"github.com/juju/errors"
 	"github.com/openfaas/faas/gateway/requests"
@@ -18,11 +19,14 @@ func MakeDeleteHandler(client rancher.BridgeClient) VarsHandler {
 	return func(w http.ResponseWriter, r *http.Request, vars map[string]string) {
 
 		defer r.Body.Close()
-		body, _ := ioutil.ReadAll(r.Body)
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			handleBadRequest(w, errors.Annotate(err, "ReadAll"))
+			return
+		}
 
 		request := requests.DeleteFunctionRequest{}
-		err := json.Unmarshal(body, &request)
-		if err != nil {
+		if err := json.Unmarshal(body, &request); err != nil {
 			handleServerError(w, errors.Annotate(err, "Unmarshal"))
 			return
 		}
@@ -33,19 +37,31 @@ func MakeDeleteHandler(client rancher.BridgeClient) VarsHandler {
 		}
 
 		// This makes sure we don't delete non-labelled deployments
-		service, findErr := client.FindServiceByName(request.FunctionName)
-		if findErr != nil {
-			handleServerError(w, errors.Annotate(findErr, "FindServiceByName"))
+		service, err := client.FindServiceByName(request.FunctionName)
+		if err != nil {
+			handleServerError(w, errors.Annotate(err, "FindServiceByName"))
 			return
-		} else if service == nil {
+		}
+
+		if service == nil {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
-		delErr := client.DeleteService(service)
-		if delErr != nil {
-			handleBadRequest(w, errors.Annotate(delErr, "DeleteService"))
+		if err := client.DeleteService(service); err != nil {
+			handleServerError(w, errors.Annotate(err, "DeleteService"))
 			return
+		}
+
+		meta := &metastore.FunctionMeta{
+			Service: service.Name,
+			Image:   service.LaunchConfig.ImageUuid,
+		}
+
+		if err := metastore.Delete(meta); err != nil {
+			if err != metastore.ErrEntityNotFound {
+				handleServerError(w, errors.Annotate(err, "Delete [metastore]"))
+			}
 		}
 
 		w.WriteHeader(http.StatusOK)
