@@ -12,11 +12,11 @@ import (
 	"github.com/gitmonster/faas-rancher/metastore"
 	"github.com/gitmonster/faas-rancher/rancher"
 	"github.com/juju/errors"
-	"github.com/openfaas/faas/gateway/requests"
+	"github.com/openfaas/faas-provider/types"
 )
 
 // ValidateDeployRequest validates that the service name is valid for Kubernetes
-func ValidateDeployRequest(request *requests.CreateFunctionRequest) error {
+func ValidateDeployRequest(request *types.FunctionDeployment) error {
 	var validDNS = regexp.MustCompile(`^[a-zA-Z\-]+$`)
 	matched := validDNS.MatchString(request.Service)
 	if matched {
@@ -37,7 +37,7 @@ func MakeDeployHandler(client rancher.BridgeClient) VarsHandler {
 			return
 		}
 
-		request := requests.CreateFunctionRequest{}
+		request := types.FunctionDeployment{}
 		if err := json.Unmarshal(body, &request); err != nil {
 			handleBadRequest(w, errors.Annotate(err, "Unmarshal"))
 			return

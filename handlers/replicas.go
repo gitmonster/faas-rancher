@@ -11,9 +11,8 @@ import (
 	"strconv"
 
 	"github.com/gitmonster/faas-rancher/rancher"
-	"github.com/gitmonster/faas-rancher/types"
 	"github.com/juju/errors"
-	"github.com/openfaas/faas/gateway/requests"
+	"github.com/openfaas/faas-provider/types"
 )
 
 // MakeReplicaUpdater updates desired count of replicas
@@ -48,7 +47,7 @@ func MakeReplicaUpdater(client rancher.BridgeClient) VarsHandler {
 		}
 
 		updates := make(map[string]string)
-		updates["scale"] = strconv.FormatInt(req.Replicas, 10)
+		updates["scale"] = strconv.FormatUint(req.Replicas, 10)
 		_, upgradeErr := client.UpdateService(service, updates)
 		if upgradeErr != nil {
 			log.Println(errors.Annotate(upgradeErr, "UpdateService"))
@@ -69,7 +68,7 @@ func MakeReplicaReader(client rancher.BridgeClient) VarsHandler {
 			return
 		}
 
-		var found *requests.Function
+		var found *types.FunctionStatus
 		for _, function := range functions {
 			if function.Name == functionName {
 				found = &function

@@ -2,7 +2,7 @@ package metastore
 
 import (
 	"github.com/gitmonster/faas-rancher/helper"
-	"github.com/openfaas/faas/gateway/requests"
+	"github.com/openfaas/faas-provider/types"
 )
 
 // FunctionMeta hold function metadata for metastore
@@ -17,7 +17,7 @@ type FunctionMeta struct {
 	Annotations map[string]interface{} `json:"annotations"`
 }
 
-func (p *FunctionMeta) CreateFrom(req *requests.CreateFunctionRequest) *FunctionMeta {
+func (p *FunctionMeta) CreateFrom(req *types.FunctionDeployment) *FunctionMeta {
 	p.Service = req.Service
 	p.Image = req.Image
 	p.EnvProcess = req.EnvProcess

@@ -12,7 +12,7 @@ import (
 	"github.com/gitmonster/faas-rancher/metastore"
 	"github.com/gitmonster/faas-rancher/rancher"
 	"github.com/juju/errors"
-	"github.com/openfaas/faas/gateway/requests"
+	"github.com/openfaas/faas-provider/types"
 )
 
 // MakeUpdateHandler creates a handler to create new functions in the cluster
@@ -26,7 +26,7 @@ func MakeUpdateHandler(client rancher.BridgeClient) VarsHandler {
 			return
 		}
 
-		request := requests.CreateFunctionRequest{}
+		request := types.FunctionDeployment{}
 		if err := json.Unmarshal(body, &request); err != nil {
 			handleBadRequest(w, errors.Annotate(err, "Unmarshal"))
 			return

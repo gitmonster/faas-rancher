@@ -18,6 +18,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	bootstrap "github.com/openfaas/faas-provider"
 	proxy "github.com/openfaas/faas-provider/proxy"
+	"github.com/openfaas/faas-provider/types"
 	bootTypes "github.com/openfaas/faas-provider/types"
 	"github.com/sirupsen/logrus"
 )
@@ -40,7 +41,6 @@ type Settings struct {
 	RancherCattleAccessKey string        `default:"" required:"true" split_words:"true"`
 	RancherCattleSecretKey string        `default:"" required:"true" split_words:"true"`
 	FaasStackName          string        `default:"faas-functions" required:"true" split_words:"true"`
-	FaasProxyTimeout       time.Duration `default:"10s" split_words:"true"`
 	FaasReadTimeout        time.Duration `default:"8s" split_words:"true"`
 	FaasWriteTimeout       time.Duration `default:"8s" split_words:"true"`
 	FaasPort               int           `default:"8080" split_words:"true"`
@@ -86,6 +86,11 @@ func main() {
 	resolver := NewFunctionURLResolver(8080)
 	var bootstrapHandlers bootTypes.FaaSHandlers
 
+	faasConfig := types.FaaSConfig{
+		ReadTimeout:  settings.FaasReadTimeout,
+		WriteTimeout: settings.FaasWriteTimeout,
+	}
+
 	if settings.Debug {
 		decorateDebug := func(name string, fn http.HandlerFunc) http.HandlerFunc {
 			return func(w http.ResponseWriter, r *http.Request) {
@@ -96,7 +101,7 @@ func main() {
 		}
 
 		bootstrapHandlers = bootTypes.FaaSHandlers{
-			FunctionProxy:  decorateDebug("Proxy", proxy.NewHandlerFunc(settings.FaasProxyTimeout, resolver)),
+			FunctionProxy:  decorateDebug("Proxy", proxy.NewHandlerFunc(faasConfig, resolver)),
 			DeleteHandler:  decorateDebug("DeleteHandler", handlers.MakeDeleteHandler(rancherClient).ServeHTTP),
 			DeployHandler:  decorateDebug("DeployHandler", handlers.MakeDeployHandler(rancherClient).ServeHTTP),
 			FunctionReader: decorateDebug("FunctionReader", handlers.MakeFunctionReader(rancherClient).ServeHTTP),
@@ -109,7 +114,7 @@ func main() {
 		}
 	} else {
 		bootstrapHandlers = bootTypes.FaaSHandlers{
-			FunctionProxy:  proxy.NewHandlerFunc(settings.FaasProxyTimeout, resolver),
+			FunctionProxy:  proxy.NewHandlerFunc(faasConfig, resolver),
 			DeleteHandler:  handlers.MakeDeleteHandler(rancherClient).ServeHTTP,
 			DeployHandler:  handlers.MakeDeployHandler(rancherClient).ServeHTTP,
 			FunctionReader: handlers.MakeFunctionReader(rancherClient).ServeHTTP,

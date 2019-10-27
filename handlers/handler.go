@@ -13,8 +13,7 @@ import (
 	"github.com/gitmonster/faas-rancher/rancher"
 	"github.com/gorilla/mux"
 	"github.com/juju/errors"
-	"github.com/openfaas/faas-cli/schema"
-	"github.com/openfaas/faas/gateway/requests"
+	"github.com/openfaas/faas-provider/types"
 	rancherClient "github.com/rancher/go-rancher/v2"
 	"github.com/sirupsen/logrus"
 )
@@ -47,8 +46,8 @@ func handleBadRequest(w http.ResponseWriter, err error) {
 	http.Error(w, err.Error(), http.StatusBadRequest)
 }
 
-func getServiceList(client rancher.BridgeClient) ([]requests.Function, error) {
-	functions := []requests.Function{}
+func getServiceList(client rancher.BridgeClient) ([]types.FunctionStatus, error) {
+	functions := []types.FunctionStatus{}
 
 	services, err := client.ListServices()
 	if err != nil {
@@ -93,7 +92,7 @@ func getServiceList(client rancher.BridgeClient) ([]requests.Function, error) {
 
 			// filter to faas function services
 			replicas := uint64(service.Scale)
-			function := requests.Function{
+			function := types.FunctionStatus{
 				Name:              meta.Service,
 				Replicas:          replicas,
 				AvailableReplicas: replicas,
@@ -114,7 +113,7 @@ func getServiceList(client rancher.BridgeClient) ([]requests.Function, error) {
 func makeUpgradeSpec(
 
 	client rancher.BridgeClient,
-	request requests.CreateFunctionRequest,
+	request types.FunctionDeployment,
 
 ) (*rancherClient.ServiceUpgrade, error) {
 	lc, err := launchConfigFromReq(client, request)
@@ -137,7 +136,7 @@ func makeUpgradeSpec(
 func makeServiceSpec(
 
 	client rancher.BridgeClient,
-	request requests.CreateFunctionRequest,
+	request types.FunctionDeployment,
 
 ) (*rancherClient.Service, error) {
 	lc, err := launchConfigFromReq(client, request)
@@ -158,7 +157,7 @@ func makeServiceSpec(
 func launchConfigFromReq(
 
 	client rancher.BridgeClient,
-	request requests.CreateFunctionRequest,
+	request types.FunctionDeployment,
 
 ) (*rancherClient.LaunchConfig, error) {
 
@@ -182,7 +181,7 @@ func launchConfigFromReq(
 	}
 
 	for _, name := range request.Secrets {
-		s := schema.Secret{
+		s := types.Secret{
 			Name: name,
 		}
 

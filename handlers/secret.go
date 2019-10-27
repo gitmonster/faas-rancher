@@ -7,7 +7,7 @@ import (
 
 	"github.com/gitmonster/faas-rancher/rancher"
 	"github.com/juju/errors"
-	"github.com/openfaas/faas-cli/schema"
+	"github.com/openfaas/faas-provider/types"
 	rancherClient "github.com/rancher/go-rancher/v2"
 )
 
@@ -28,7 +28,7 @@ func MakeSecretHandler(client rancher.BridgeClient) http.HandlerFunc {
 			return
 		}
 
-		secret := schema.Secret{}
+		secret := types.Secret{}
 		if err := json.Unmarshal(body, &secret); err != nil {
 			handleBadRequest(w, errors.Annotate(err, "Unmarshal"))
 			return
@@ -57,9 +57,9 @@ func handleList(client rancher.BridgeClient, w http.ResponseWriter) {
 		return
 	}
 
-	var results []schema.Secret
+	var results []types.Secret
 	for _, s := range coll.Data {
-		results = append(results, schema.Secret{
+		results = append(results, types.Secret{
 			Name:  s.Name,
 			Value: s.Value,
 		})
@@ -76,7 +76,7 @@ func handleList(client rancher.BridgeClient, w http.ResponseWriter) {
 	w.Write(buf)
 }
 
-func deleteSecret(client rancher.BridgeClient, secret *schema.Secret) error {
+func deleteSecret(client rancher.BridgeClient, secret *types.Secret) error {
 	old, err := lookupSecret(client, secret)
 	if err != nil {
 		return errors.Annotate(err, "lookupSecret")
@@ -92,7 +92,7 @@ func deleteSecret(client rancher.BridgeClient, secret *schema.Secret) error {
 	return errors.Errorf("no secret with name %q available", secret.Name)
 }
 
-func ensureSecret(client rancher.BridgeClient, secret *schema.Secret) error {
+func ensureSecret(client rancher.BridgeClient, secret *types.Secret) error {
 	old, err := lookupSecret(client, secret)
 	if err != nil {
 		return errors.Annotate(err, "lookupSecret")
@@ -120,7 +120,7 @@ func ensureSecret(client rancher.BridgeClient, secret *schema.Secret) error {
 	return nil
 }
 
-func lookupSecret(client rancher.BridgeClient, secret *schema.Secret) (*rancherClient.Secret, error) {
+func lookupSecret(client rancher.BridgeClient, secret *types.Secret) (*rancherClient.Secret, error) {
 	coll, err := client.ListSecrets(nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "ListSecrets")
