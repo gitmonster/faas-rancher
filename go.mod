@@ -12,7 +12,6 @@ require (
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/openfaas/faas v0.0.0-20191027090354-60afb7d210b8
-	github.com/openfaas/faas-cli v0.0.0-20191019154120-b7a67fe8d6a0
 	github.com/openfaas/faas-provider v0.0.0-20191016103933-78c25aab33bb
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/rancher/go-rancher v0.0.0-20170915171953-821d581e449e
